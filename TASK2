@@ -1,0 +1,90 @@
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+
+def load_and_preprocess_data(file_path):
+
+    data = pd.read_csv('/content/drive/MyDrive/Colab Notebooks/Downloads/Mall_Customers.csv')
+
+    data.columns = data.columns.str.lower()
+
+
+    features = data[['customerid', 'gender', 'age', 'annual income (k$)', 'spending score (1-100)']].copy()
+
+
+    features['gender'] = features['gender'].map({'Male': 0, 'Female': 1})
+
+
+    features[['age', 'annual income (k$)', 'spending score (1-100)']] = features[[
+        'age', 'annual income (k$)', 'spending score (1-100)'
+    ]].apply(lambda x: x.fillna(x.median()))
+
+
+    features['gender'] = np.where(features['gender'].isna() | ~np.isfinite(features['gender']),
+                                 -1, features['gender']).astype('int')
+
+    return features
+
+def determine_optimal_k(data, max_k=10):
+
+    scaled_features = StandardScaler().fit_transform(data.drop('customerid', axis=1))
+
+
+    wcss = []
+    for i in range(1, max_k + 1):
+        kmeans = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=0)
+        kmeans.fit(scaled_features)
+        wcss.append(kmeans.inertia_)
+
+    return wcss
+
+def visualize_elbow(wcss):
+
+    plt.plot(range(1, len(wcss) + 1), wcss, marker='o')
+    plt.title('Elbow Method for Optimal k')
+    plt.xlabel('Number of Clusters (k)')
+    plt.ylabel('Within-Cluster Sum of Squares (WCSS)')
+    plt.grid(True)
+    plt.show()
+
+def visualize_clusters_2d(data, feature_names):
+
+    if len(feature_names) >= 2:
+        plt.scatter(data[feature_names[0]], data[feature_names[1]], c=data['Cluster'], cmap='viridis', alpha=0.8)
+        plt.title(f'K-means Clustering - {feature_names[0]} vs {feature_names[1]}')
+        plt.xlabel(feature_names[0])
+        plt.ylabel(feature_names[1])
+        plt.show()
+    else:
+        print("Invalid number of features for visualization.")
+
+def main():
+
+    file_path = 'Mall_Customers.csv'
+    customer_data = load_and_preprocess_data(file_path)
+
+
+    wcss_values = determine_optimal_k(customer_data)
+    visualize_elbow(wcss_values)
+
+
+    optimal_k_clusters = 5
+    scaled_customer_data = StandardScaler().fit_transform(customer_data.drop('customerid', axis=1))
+    kmeans_model = KMeans(n_clusters=optimal_k_clusters, init='k-means++', max_iter=300, n_init=10, random_state=0)
+    assigned_clusters = kmeans_model.fit_predict(scaled_customer_data)
+
+
+    customer_data['Cluster'] = assigned_clusters
+
+
+    visualize_clusters_2d(customer_data, ['annual income (k$)', 'spending score (1-100)'])
+
+
+    customer_clusters = customer_data[['customerid', 'Cluster']]
+    print("\nCustomer IDs and Assigned Clusters:")
+    print(customer_clusters)
+
+if _name_ == "_main_":
+    main()
